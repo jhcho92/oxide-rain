@@ -1,0 +1,22 @@
+[package]
+name = "oxide-rain"
+version = "0.1.0"
+edition = "2021"
+description = "A 2D top-down shooter built with Bevy ECS"
+
+[dependencies]
+# Bevy game engine - using 0.14 as requested
+bevy = { version = "0.14", features = ["dynamic_linking"] }
+
+# Random number generation for enemy spawn positions
+rand = "0.8"
+
+# Enable optimizations for dependencies in dev builds.
+# This makes debug builds much faster while keeping your code debuggable.
+[profile.dev.package."*"]
+opt-level = 3
+
+# Enable link-time optimization for release builds.
+# Produces smaller and faster binaries at cost of compile time.
+[profile.release]
+lto = "thin"
