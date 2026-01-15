@@ -31,10 +31,7 @@
 //! ```
 
 use bevy::{
-    core_pipeline::{
-        bloom::{BloomCompositeMode, BloomSettings},
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::tonemapping::Tonemapping,
     prelude::*,
 };
 
@@ -66,8 +63,8 @@ fn main() {
         // ─────────────────────────────────────────────────────────────────────
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Oxide Rain - 네온 사이버펑크 슈터".into(),
-                resolution: (800.0, 600.0).into(),
+                title: "Oxide Rain".into(),
+                resolution: (800, 600).into(),
                 resizable: false,
                 ..default()
             }),
@@ -107,24 +104,10 @@ fn main() {
 // 전역 시스템
 // =============================================================================
 
-/// HDR 카메라와 Bloom 효과를 설정하는 시스템입니다.
+/// 2D 카메라를 설정하는 시스템입니다.
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface,
-            ..default()
-        },
-        BloomSettings {
-            intensity: 0.3,
-            low_frequency_boost: 0.8,
-            low_frequency_boost_curvature: 0.5,
-            high_pass_frequency: 0.8,
-            composite_mode: BloomCompositeMode::Additive,
-            ..default()
-        },
+        Camera2d,
+        Tonemapping::TonyMcMapface,
     ));
 }

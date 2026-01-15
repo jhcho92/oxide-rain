@@ -59,15 +59,13 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     let texture: Handle<Image> = asset_server.load("player.png");
 
     commands.spawn((
-        SpriteBundle {
-            texture,
-            // Transform으로 위치와 크기 조절
-            transform: Transform {
-                translation: Vec3::new(0.0, -200.0, 0.0),
-                // 스프라이트 크기 조절 (원본이 크면 축소)
-                scale: Vec3::splat(PLAYER_SCALE),
-                ..default()
-            },
+        Sprite {
+            image: texture,
+            ..default()
+        },
+        Transform {
+            translation: Vec3::new(0.0, -200.0, 0.0),
+            scale: Vec3::splat(PLAYER_SCALE),
             ..default()
         },
         Player,
@@ -80,7 +78,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// 게임 오버 또는 메인 메뉴로 돌아갈 때 호출됩니다.
 fn cleanup_player(mut commands: Commands, query: Query<Entity, With<Player>>) {
     for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -92,10 +90,12 @@ fn player_movement(
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
     // 플레이어가 없으면 조기 종료 (안전 처리)
-    let Ok(mut transform) = query.get_single_mut() else {
+    let Ok(mut transform) = query.single_mut() else {
         return;
     };
-    let window = window_query.single();
+    let Ok(window) = window_query.single() else {
+        return;
+    };
 
     let mut direction = Vec2::ZERO;
 
@@ -114,7 +114,7 @@ fn player_movement(
 
     if direction != Vec2::ZERO {
         direction = direction.normalize();
-        let movement = direction * PLAYER_SPEED * time.delta_seconds();
+        let movement = direction * PLAYER_SPEED * time.delta_secs();
         transform.translation.x += movement.x;
         transform.translation.y += movement.y;
     }
@@ -136,7 +136,7 @@ fn player_shooting(
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         // 플레이어가 없으면 조기 종료
-        let Ok(player_transform) = query.get_single() else {
+        let Ok(player_transform) = query.single() else {
             return;
         };
 
@@ -144,17 +144,17 @@ fn player_shooting(
         let texture: Handle<Image> = asset_server.load("bullet.png");
 
         commands.spawn((
-            SpriteBundle {
-                texture,
-                transform: Transform {
-                    translation: Vec3::new(
-                        player_transform.translation.x,
-                        player_transform.translation.y + 40.0,
-                        0.0,
-                    ),
-                    scale: Vec3::splat(PROJECTILE_SCALE),
-                    ..default()
-                },
+            Sprite {
+                image: texture,
+                ..default()
+            },
+            Transform {
+                translation: Vec3::new(
+                    player_transform.translation.x,
+                    player_transform.translation.y + 40.0,
+                    0.0,
+                ),
+                scale: Vec3::splat(PROJECTILE_SCALE),
                 ..default()
             },
             Projectile,

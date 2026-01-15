@@ -39,7 +39,7 @@ impl Plugin for ProjectilePlugin {
 /// 모든 투사체 엔티티를 정리하는 시스템입니다.
 fn cleanup_projectiles(mut commands: Commands, query: Query<Entity, With<Projectile>>) {
     for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -49,8 +49,8 @@ fn projectile_movement(
     mut query: Query<(&mut Transform, &Velocity), With<Projectile>>,
 ) {
     for (mut transform, velocity) in query.iter_mut() {
-        transform.translation.x += velocity.0.x * time.delta_seconds();
-        transform.translation.y += velocity.0.y * time.delta_seconds();
+        transform.translation.x += velocity.0.x * time.delta_secs();
+        transform.translation.y += velocity.0.y * time.delta_secs();
     }
 }
 
@@ -60,7 +60,9 @@ fn despawn_offscreen_projectiles(
     query: Query<(Entity, &Transform), With<Projectile>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
-    let window = window_query.single();
+    let Ok(window) = window_query.single() else {
+        return;
+    };
     let max_y = window.height() / 2.0 + 50.0;
 
     for (entity, transform) in query.iter() {

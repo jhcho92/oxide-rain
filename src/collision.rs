@@ -54,8 +54,8 @@ fn check_projectile_enemy_collision(
 
             if distance < collision_distance {
                 // 충돌! 둘 다 제거
-                commands.entity(proj_entity).despawn_recursive();
-                commands.entity(enemy_entity).despawn_recursive();
+                commands.entity(proj_entity).despawn();
+                commands.entity(enemy_entity).despawn();
 
                 // 점수 증가
                 score.0 += SCORE_PER_ENEMY;
@@ -77,7 +77,7 @@ fn check_enemy_player_collision(
     enemies: Query<(&Transform, &CollisionRadius), With<Enemy>>,
 ) {
     // 플레이어가 없으면 조기 종료
-    let Ok((player_transform, player_radius)) = player.get_single() else {
+    let Ok((player_transform, player_radius)) = player.single() else {
         return;
     };
 

@@ -5,13 +5,13 @@
 //! - 인게임 UI: 미니멀한 점수 표시 (숫자만)
 //! - 게임 오버 화면: 닉네임과 함께 결과 표시
 //!
-//! # 주의: Bevy 0.14
-//! ReceivedCharacter 이벤트가 제거되어 ButtonInput<KeyCode>로 입력을 처리합니다.
+//! # 주의: Bevy 0.18
+//! KeyboardInput 이벤트를 사용하여 입력을 처리합니다.
 
-use bevy::prelude::*;
+use bevy::{ecs::message::MessageReader, input::keyboard::{Key, KeyboardInput}, prelude::*};
 
 use crate::components::{
-    ButtonAction, GameOverUI, InGameUI, MainMenuUI, NewRecordText, PulseAnimation, ScoreText,
+    ButtonAction, CursorBlink, GameOverUI, InGameUI, MainMenuUI, NewRecordText, PulseAnimation, ScoreText,
 };
 use crate::resources::{AppState, HighScore, IsNewRecord, PlayerName, Score, MAX_NAME_LENGTH};
 
@@ -37,7 +37,7 @@ impl Plugin for UiPlugin {
             .add_systems(OnExit(AppState::MainMenu), cleanup_main_menu)
             .add_systems(
                 Update,
-                nickname_input_system.run_if(in_state(AppState::MainMenu)),
+                (nickname_input_system, cursor_blink_system).run_if(in_state(AppState::MainMenu)),
             )
             // 인게임
             .add_systems(OnEnter(AppState::InGame), setup_ingame_ui)
@@ -85,46 +85,43 @@ fn setup_main_menu(
 
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                background_color: Color::BLACK.into(),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
+            BackgroundColor(Color::BLACK),
             MainMenuUI,
         ))
         .with_children(|parent| {
             // 1. 게임 타이틀
-            parent.spawn(TextBundle::from_section(
-                "OXIDE RAIN",
-                TextStyle {
+            parent.spawn((
+                Text::new("OXIDE RAIN"),
+                TextFont {
                     font: font.clone(),
                     font_size: 80.0,
-                    color: NEON_CYAN,
+                    ..default()
                 },
+                TextColor(NEON_CYAN),
             ));
 
             // 2. 닉네임 입력 안내
-            parent.spawn(
-                TextBundle::from_section(
-                    "Enter Nickname (English/Numbers Only):",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 28.0,
-                        color: Color::srgb(0.6, 0.6, 0.6),
-                    },
-                )
-                .with_style(Style {
+            parent.spawn((
+                Text::new("닉네임 입력 (영문/숫자만 입력 가능):"),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 28.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                Node {
                     margin: UiRect::top(Val::Px(50.0)),
                     ..default()
-                }),
-            );
+                },
+            ));
 
             // 3. 닉네임 표시 (커서 포함)
             let display_text = if player_name.0.is_empty() {
@@ -134,69 +131,67 @@ fn setup_main_menu(
             };
 
             parent.spawn((
-                TextBundle::from_section(
-                    display_text,
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 50.0,
-                        color: GOLD,
-                    },
-                )
-                .with_style(Style {
+                Text::new(display_text),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 50.0,
+                    ..default()
+                },
+                TextColor(GOLD),
+                Node {
                     margin: UiRect::top(Val::Px(10.0)),
                     ..default()
-                }),
+                },
                 NicknameDisplay,
+                CursorBlink,
             ));
 
             // 4. 시작 안내
-            parent.spawn(
-                TextBundle::from_section(
-                    "Press [ENTER] to Start",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 24.0,
-                        color: Color::WHITE,
-                    },
-                )
-                .with_style(Style {
+            parent.spawn((
+                Text::new("[ENTER] 키를 눌러 시작"),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 24.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node {
                     margin: UiRect::top(Val::Px(60.0)),
                     ..default()
-                }),
-            );
+                },
+            ));
 
             // 5. 조작법 안내
-            parent.spawn(
-                TextBundle::from_section(
-                    "WASD: Move | SPACE: Shoot",
-                    TextStyle {
-                        font,
-                        font_size: 18.0,
-                        color: Color::srgb(0.4, 0.4, 0.4),
-                    },
-                )
-                .with_style(Style {
+            parent.spawn((
+                Text::new("WASD: 이동 | SPACE: 발사"),
+                TextFont {
+                    font,
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.4, 0.4, 0.4)),
+                Node {
                     margin: UiRect::top(Val::Px(100.0)),
                     ..default()
-                }),
-            );
+                },
+            ));
         });
 }
 
 /// 메인 메뉴 UI를 정리하는 시스템입니다.
 fn cleanup_main_menu(mut commands: Commands, query: Query<Entity, With<MainMenuUI>>) {
     for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
 /// 닉네임 입력 처리 시스템입니다.
 ///
-/// # Bevy 0.14 호환
-/// ReceivedCharacter 이벤트를 사용하여 텍스트 입력을 처리합니다.
+/// # Bevy 0.18 호환
+/// KeyboardInput 이벤트를 사용하여 텍스트 입력을 처리합니다.
 /// 영문자와 숫자만 허용합니다.
 fn nickname_input_system(
-    mut char_evr: EventReader<ReceivedCharacter>,
+    mut keyboard_input_events: MessageReader<KeyboardInput>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut player_name: ResMut<PlayerName>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -211,14 +206,22 @@ fn nickname_input_system(
         }
     }
 
-    // 문자 입력 처리
-    for ev in char_evr.read() {
-        for c in ev.char.chars() {
-            // ASCII 영문자 및 숫자만 허용
-            if c.is_ascii_alphanumeric() {
-                if player_name.0.len() < MAX_NAME_LENGTH {
-                    player_name.0.push(c);
-                    text_changed = true;
+    // 문자 입력 처리 (KeyboardInput 사용)
+    for event in keyboard_input_events.read() {
+        // 키가 눌렸을 때만 처리
+        if !event.state.is_pressed() {
+            continue;
+        }
+
+        // logical_key를 통해 텍스트 입력 문자를 가져옴
+        if let Key::Character(ref smol_str) = event.logical_key {
+            for c in smol_str.chars() {
+                // ASCII 영문자 및 숫자만 허용
+                if c.is_ascii_alphanumeric() {
+                    if player_name.0.len() < MAX_NAME_LENGTH {
+                        player_name.0.push(c);
+                        text_changed = true;
+                    }
                 }
             }
         }
@@ -226,8 +229,8 @@ fn nickname_input_system(
 
     // 텍스트 업데이트 (이름 + 커서)
     if text_changed {
-        if let Ok(mut text) = query.get_single_mut() {
-            text.sections[0].value = if player_name.0.is_empty() {
+        if let Ok(mut text) = query.single_mut() {
+            **text = if player_name.0.is_empty() {
                 "_".to_string()
             } else {
                 format!("{}_", player_name.0)
@@ -244,6 +247,33 @@ fn nickname_input_system(
     }
 }
 
+/// 커서 깜빡임 애니메이션 시스템입니다.
+/// 0.5초마다 커서(_)를 표시하거나 숨깁니다.
+fn cursor_blink_system(
+    time: Res<Time>,
+    player_name: Res<PlayerName>,
+    mut query: Query<&mut Text, With<CursorBlink>>,
+) {
+    // 0.5초 주기로 깜빡임
+    let blink_visible = (time.elapsed_secs() * 2.0) as i32 % 2 == 0;
+
+    for mut text in query.iter_mut() {
+        **text = if player_name.0.is_empty() {
+            if blink_visible {
+                "_".to_string()
+            } else {
+                " ".to_string()
+            }
+        } else {
+            if blink_visible {
+                format!("{}_", player_name.0)
+            } else {
+                player_name.0.clone()
+            }
+        };
+    }
+}
+
 // =============================================================================
 // 인게임 UI 시스템 (미니멀 HUD)
 // =============================================================================
@@ -255,21 +285,17 @@ fn setup_ingame_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // 점수 텍스트 (우상단, 배경 없음)
     commands.spawn((
-        TextBundle {
-            text: Text::from_section(
-                "0",
-                TextStyle {
-                    font,
-                    font_size: 60.0,
-                    color: GOLD,
-                },
-            ),
-            style: Style {
-                position_type: PositionType::Absolute,
-                right: Val::Px(30.0),
-                top: Val::Px(20.0),
-                ..default()
-            },
+        Text::new("0"),
+        TextFont {
+            font,
+            font_size: 60.0,
+            ..default()
+        },
+        TextColor(GOLD),
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(30.0),
+            top: Val::Px(20.0),
             ..default()
         },
         ScoreText,
@@ -280,7 +306,7 @@ fn setup_ingame_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// 인게임 UI를 정리하는 시스템입니다.
 fn cleanup_ingame_ui(mut commands: Commands, query: Query<Entity, With<InGameUI>>) {
     for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -288,7 +314,7 @@ fn cleanup_ingame_ui(mut commands: Commands, query: Query<Entity, With<InGameUI>
 fn update_score_text(score: Res<Score>, mut query: Query<&mut Text, With<ScoreText>>) {
     if score.is_changed() {
         for mut text in query.iter_mut() {
-            text.sections[0].value = format_score(score.0);
+            **text = format_score(score.0);
         }
     }
 }
@@ -330,167 +356,162 @@ fn setup_game_over_ui(
     }
 
     let name = if player_name.0.is_empty() {
-        "Player".to_string()
+        "플레이어".to_string()
     } else {
         player_name.0.clone()
     };
 
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    row_gap: Val::Px(15.0),
-                    ..default()
-                },
-                background_color: OVERLAY_COLOR.into(),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: Val::Px(15.0),
                 ..default()
             },
+            BackgroundColor(OVERLAY_COLOR),
             GameOverUI,
         ))
         .with_children(|parent| {
             // GAME OVER
-            parent.spawn(TextBundle::from_section(
-                "GAME OVER",
-                TextStyle {
+            parent.spawn((
+                Text::new("게임 오버"),
+                TextFont {
                     font: font.clone(),
                     font_size: 80.0,
-                    color: Color::srgb(1.0, 0.2, 0.2),
+                    ..default()
                 },
+                TextColor(Color::srgb(1.0, 0.2, 0.2)),
             ));
 
             // 플레이어 이름 + 점수
-            parent.spawn(
-                TextBundle::from_section(
-                    format!("{}'s Score", name),
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 28.0,
-                        color: NEON_CYAN,
-                    },
-                )
-                .with_style(Style {
+            parent.spawn((
+                Text::new(format!("{}의 점수", name)),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 28.0,
+                    ..default()
+                },
+                TextColor(NEON_CYAN),
+                Node {
                     margin: UiRect::top(Val::Px(30.0)),
                     ..default()
-                }),
-            );
-
-            // 점수 값
-            parent.spawn(TextBundle::from_section(
-                format_score(score.0),
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 70.0,
-                    color: GOLD,
                 },
             ));
 
+            // 점수 값
+            parent.spawn((
+                Text::new(format_score(score.0)),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 70.0,
+                    ..default()
+                },
+                TextColor(GOLD),
+            ));
+
             // 최고 기록
-            parent.spawn(TextBundle::from_section(
-                format!("High Score: {}", format_score(high_score.0)),
-                TextStyle {
+            parent.spawn((
+                Text::new(format!("최고 기록: {}", format_score(high_score.0))),
+                TextFont {
                     font: font.clone(),
                     font_size: 22.0,
-                    color: Color::srgb(0.6, 0.7, 0.8),
+                    ..default()
                 },
+                TextColor(Color::srgb(0.6, 0.7, 0.8)),
             ));
 
             // 신기록 또는 도발 메시지
             if new_record {
                 parent.spawn((
-                    TextBundle::from_section(
-                        format!("NEW RECORD, {}!", name),
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 36.0,
-                            color: NEON_PINK,
-                        },
-                    )
-                    .with_style(Style {
+                    Text::new(format!("신기록 달성, {}!", name)),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 36.0,
+                        ..default()
+                    },
+                    TextColor(NEON_PINK),
+                    Node {
                         margin: UiRect::top(Val::Px(20.0)),
                         ..default()
-                    }),
+                    },
                     NewRecordText,
                     PulseAnimation::default(),
                 ));
             } else {
-                parent.spawn(
-                    TextBundle::from_section(
-                        format!("Nice try, {}!", name),
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 24.0,
-                            color: Color::srgb(0.6, 0.6, 0.7),
-                        },
-                    )
-                    .with_style(Style {
+                parent.spawn((
+                    Text::new(format!("잘 했어요, {}!", name)),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 24.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.6, 0.6, 0.7)),
+                    Node {
                         margin: UiRect::top(Val::Px(20.0)),
                         ..default()
-                    }),
-                );
+                    },
+                ));
             }
 
             // 재시작 버튼
             parent
                 .spawn((
-                    ButtonBundle {
-                        style: Style {
-                            width: Val::Px(250.0),
-                            height: Val::Px(60.0),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            margin: UiRect::top(Val::Px(40.0)),
-                            border: UiRect::all(Val::Px(2.0)),
-                            ..default()
-                        },
-                        background_color: BUTTON_NORMAL.into(),
-                        border_color: NEON_CYAN.into(),
+                    Button,
+                    Node {
+                        width: Val::Px(250.0),
+                        height: Val::Px(60.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::top(Val::Px(40.0)),
+                        border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
+                    BackgroundColor(BUTTON_NORMAL),
+                    BorderColor::all(NEON_CYAN),
                     ButtonAction::RestartGame,
                 ))
                 .with_children(|button| {
-                    button.spawn(TextBundle::from_section(
-                        "RESTART",
-                        TextStyle {
+                    button.spawn((
+                        Text::new("다시 시작"),
+                        TextFont {
                             font: font.clone(),
                             font_size: 28.0,
-                            color: Color::WHITE,
+                            ..default()
                         },
+                        TextColor(Color::WHITE),
                     ));
                 });
 
             // 메인 메뉴 버튼
             parent
                 .spawn((
-                    ButtonBundle {
-                        style: Style {
-                            width: Val::Px(250.0),
-                            height: Val::Px(50.0),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            margin: UiRect::top(Val::Px(10.0)),
-                            border: UiRect::all(Val::Px(1.0)),
-                            ..default()
-                        },
-                        background_color: Color::srgba(0.05, 0.05, 0.1, 0.8).into(),
-                        border_color: Color::srgb(0.4, 0.4, 0.5).into(),
+                    Button,
+                    Node {
+                        width: Val::Px(250.0),
+                        height: Val::Px(50.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::top(Val::Px(10.0)),
+                        border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
+                    BackgroundColor(Color::srgba(0.05, 0.05, 0.1, 0.8)),
+                    BorderColor::all(Color::srgb(0.4, 0.4, 0.5)),
                     ButtonAction::MainMenu,
                 ))
                 .with_children(|button| {
-                    button.spawn(TextBundle::from_section(
-                        "MAIN MENU",
-                        TextStyle {
+                    button.spawn((
+                        Text::new("메인 메뉴"),
+                        TextFont {
                             font,
                             font_size: 22.0,
-                            color: Color::srgb(0.7, 0.7, 0.8),
+                            ..default()
                         },
+                        TextColor(Color::srgb(0.7, 0.7, 0.8)),
                     ));
                 });
         });
@@ -499,7 +520,7 @@ fn setup_game_over_ui(
 /// 게임 오버 UI를 정리하는 시스템입니다.
 fn cleanup_game_over_ui(mut commands: Commands, query: Query<Entity, With<GameOverUI>>) {
     for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -543,7 +564,7 @@ fn button_interaction_system(
                 *bg_color = BUTTON_PRESSED.into();
 
                 match action {
-                    ButtonAction::StartGame | ButtonAction::RestartGame => {
+                    ButtonAction::RestartGame => {
                         score.0 = 0;
                         next_state.set(AppState::InGame);
                     }
@@ -554,11 +575,11 @@ fn button_interaction_system(
             }
             Interaction::Hovered => {
                 *bg_color = BUTTON_HOVERED.into();
-                *border_color = Color::WHITE.into();
+                *border_color = BorderColor::all(Color::WHITE);
             }
             Interaction::None => {
                 *bg_color = BUTTON_NORMAL.into();
-                *border_color = NEON_CYAN.into();
+                *border_color = BorderColor::all(NEON_CYAN);
             }
         }
     }

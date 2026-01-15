@@ -5,18 +5,15 @@ edition = "2021"
 description = "A 2D top-down shooter built with Bevy ECS"
 
 [dependencies]
-# Bevy game engine - using 0.14 as requested
-bevy = { version = "0.14", features = ["dynamic_linking"] }
+bevy = { version = "0.18.0", features = ["dynamic_linking"] }
 
-# Random number generation for enemy spawn positions
-rand = "0.8"
+rand = "0.10.0-rc.6"
 
-# Enable optimizations for dependencies in dev builds.
-# This makes debug builds much faster while keeping your code debuggable.
 [profile.dev.package."*"]
 opt-level = 3
 
-# Enable link-time optimization for release builds.
-# Produces smaller and faster binaries at cost of compile time.
 [profile.release]
-lto = "thin"
+opt-level = "z"     # 용량 최적화 (s는 사이즈, z는 더 작은 사이즈)
+lto = true          # 불필요한 코드 제거 (Link Time Optimization)
+codegen-units = 1   # 병렬 빌드 끄고 꼼꼼하게 압축 (빌드 시간 늘어남)
+strip = true        # 디버그 심볼 제거 (용량 확 줄어듦)

@@ -51,7 +51,7 @@ fn reset_spawn_timer(mut spawn_timer: ResMut<EnemySpawnTimer>) {
 /// 모든 적 엔티티를 정리하는 시스템입니다.
 fn cleanup_enemies(mut commands: Commands, query: Query<Entity, With<Enemy>>) {
     for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -63,28 +63,30 @@ fn enemy_spawning(
     mut spawn_timer: ResMut<EnemySpawnTimer>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
-    let window = window_query.single();
+    let Ok(window) = window_query.single() else {
+        return;
+    };
 
     spawn_timer.0.tick(time.delta());
 
     if spawn_timer.0.just_finished() {
         // 랜덤 X 위치 생성
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let half_width = window.width() / 2.0 - ENEMY_COLLISION_RADIUS * 2.0;
-        let spawn_x = rng.gen_range(-half_width..half_width);
+        let spawn_x = rng.random_range(-half_width..half_width);
         let spawn_y = window.height() / 2.0 + 50.0;
 
         // enemy.png 이미지 로드
         let texture: Handle<Image> = asset_server.load("enemy.png");
 
         commands.spawn((
-            SpriteBundle {
-                texture,
-                transform: Transform {
-                    translation: Vec3::new(spawn_x, spawn_y, 0.0),
-                    scale: Vec3::splat(ENEMY_SCALE),
-                    ..default()
-                },
+            Sprite {
+                image: texture,
+                ..default()
+            },
+            Transform {
+                translation: Vec3::new(spawn_x, spawn_y, 0.0),
+                scale: Vec3::splat(ENEMY_SCALE),
                 ..default()
             },
             Enemy,
@@ -97,8 +99,8 @@ fn enemy_spawning(
 /// 모든 적을 속도에 따라 이동시키는 시스템입니다.
 fn enemy_movement(time: Res<Time>, mut query: Query<(&mut Transform, &Velocity), With<Enemy>>) {
     for (mut transform, velocity) in query.iter_mut() {
-        transform.translation.x += velocity.0.x * time.delta_seconds();
-        transform.translation.y += velocity.0.y * time.delta_seconds();
+        transform.translation.x += velocity.0.x * time.delta_secs();
+        transform.translation.y += velocity.0.y * time.delta_secs();
     }
 }
 
@@ -108,7 +110,9 @@ fn despawn_offscreen_enemies(
     query: Query<(Entity, &Transform), With<Enemy>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
-    let window = window_query.single();
+    let Ok(window) = window_query.single() else {
+        return;
+    };
     let min_y = -window.height() / 2.0 - 50.0;
 
     for (entity, transform) in query.iter() {

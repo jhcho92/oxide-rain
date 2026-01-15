@@ -62,12 +62,14 @@ pub struct ScoreText;
 #[derive(Component)]
 pub struct NewRecordText;
 
+/// 닉네임 입력 커서 깜빡임을 위한 마커입니다.
+#[derive(Component)]
+pub struct CursorBlink;
+
 /// 버튼 동작을 식별하는 열거형 컴포넌트입니다.
 /// 버튼 클릭 시 어떤 동작을 수행할지 결정합니다.
 #[derive(Component, Clone, Copy)]
 pub enum ButtonAction {
-    /// 게임 시작 (MainMenu → InGame)
-    StartGame,
     /// 게임 재시작 (GameOver → InGame)
     RestartGame,
     /// 메인 메뉴로 돌아가기 (GameOver → MainMenu)
