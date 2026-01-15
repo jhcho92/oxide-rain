@@ -29,6 +29,6 @@ debug = 0               # 외부 라이브러리 디버깅할 일 없으니 심�
 strip = true            # 심볼 완전 제거
 
 [profile.release]
-opt-level = "z"     # 용량 최적화 (s는 사이즈, z는 더 작은 사이즈)
-lto = true          # 불필요한 코드 제거 (Link Time Optimization)
+# opt-level = "z"     # 용량 최적화 (s는 사이즈, z는 더 작은 사이즈)
+# lto = true          # 불필요한 코드 제거 (Link Time Optimization)
 strip = true        # 디버그 심볼 제거 (용량 확 줄어듦)
