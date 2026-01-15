@@ -113,7 +113,7 @@ fn setup_main_menu(
             // 2. 닉네임 입력 안내
             parent.spawn(
                 TextBundle::from_section(
-                    "Enter Nickname (English/Num):",
+                    "Enter Nickname (English/Numbers Only):",
                     TextStyle {
                         font: font.clone(),
                         font_size: 28.0,
@@ -193,9 +193,10 @@ fn cleanup_main_menu(mut commands: Commands, query: Query<Entity, With<MainMenuU
 /// 닉네임 입력 처리 시스템입니다.
 ///
 /// # Bevy 0.14 호환
-/// ReceivedCharacter가 제거되어 ButtonInput<KeyCode>로 직접 처리합니다.
+/// ReceivedCharacter 이벤트를 사용하여 텍스트 입력을 처리합니다.
 /// 영문자와 숫자만 허용합니다.
 fn nickname_input_system(
+    mut char_evr: EventReader<ReceivedCharacter>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut player_name: ResMut<PlayerName>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -205,54 +206,19 @@ fn nickname_input_system(
 
     // Backspace: 마지막 문자 삭제
     if keyboard.just_pressed(KeyCode::Backspace) {
-        player_name.0.pop();
-        text_changed = true;
+        if player_name.0.pop().is_some() {
+            text_changed = true;
+        }
     }
 
-    // 최대 길이 체크
-    if player_name.0.len() < MAX_NAME_LENGTH {
-        // 영문자 입력 (A-Z)
-        let letter_keys = [
-            (KeyCode::KeyA, 'A'), (KeyCode::KeyB, 'B'), (KeyCode::KeyC, 'C'),
-            (KeyCode::KeyD, 'D'), (KeyCode::KeyE, 'E'), (KeyCode::KeyF, 'F'),
-            (KeyCode::KeyG, 'G'), (KeyCode::KeyH, 'H'), (KeyCode::KeyI, 'I'),
-            (KeyCode::KeyJ, 'J'), (KeyCode::KeyK, 'K'), (KeyCode::KeyL, 'L'),
-            (KeyCode::KeyM, 'M'), (KeyCode::KeyN, 'N'), (KeyCode::KeyO, 'O'),
-            (KeyCode::KeyP, 'P'), (KeyCode::KeyQ, 'Q'), (KeyCode::KeyR, 'R'),
-            (KeyCode::KeyS, 'S'), (KeyCode::KeyT, 'T'), (KeyCode::KeyU, 'U'),
-            (KeyCode::KeyV, 'V'), (KeyCode::KeyW, 'W'), (KeyCode::KeyX, 'X'),
-            (KeyCode::KeyY, 'Y'), (KeyCode::KeyZ, 'Z'),
-        ];
-
-        for (key_code, ch) in letter_keys {
-            if keyboard.just_pressed(key_code) {
-                let final_char = if keyboard.pressed(KeyCode::ShiftLeft)
-                    || keyboard.pressed(KeyCode::ShiftRight)
-                {
-                    ch
-                } else {
-                    ch.to_ascii_lowercase()
-                };
-                player_name.0.push(final_char);
-                text_changed = true;
-                break;
-            }
-        }
-
-        // 숫자 입력 (0-9)
-        if !text_changed {
-            let number_keys = [
-                (KeyCode::Digit0, '0'), (KeyCode::Digit1, '1'), (KeyCode::Digit2, '2'),
-                (KeyCode::Digit3, '3'), (KeyCode::Digit4, '4'), (KeyCode::Digit5, '5'),
-                (KeyCode::Digit6, '6'), (KeyCode::Digit7, '7'), (KeyCode::Digit8, '8'),
-                (KeyCode::Digit9, '9'),
-            ];
-
-            for (key_code, ch) in number_keys {
-                if keyboard.just_pressed(key_code) {
-                    player_name.0.push(ch);
+    // 문자 입력 처리
+    for ev in char_evr.read() {
+        for c in ev.char.chars() {
+            // ASCII 영문자 및 숫자만 허용
+            if c.is_ascii_alphanumeric() {
+                if player_name.0.len() < MAX_NAME_LENGTH {
+                    player_name.0.push(c);
                     text_changed = true;
-                    break;
                 }
             }
         }
