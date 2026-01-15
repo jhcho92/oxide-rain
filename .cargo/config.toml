@@ -1,0 +1,15 @@
+# Windows 사용자라면
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe" # Rust 설치할 때 같이 깔리는 고속 링커
+
+[profile.dev]
+split-debuginfo = "unpacked"
+
+# Mac 사용자라면 (zld 설치 필요: brew install michaeleisel/zld/zld)
+# [target.x86_64-apple-darwin]
+# linker = "zld"
+
+# Linux 사용자라면 (mold가 압도적으로 빠름: sudo apt install mold)
+# [target.x86_64-unknown-linux-gnu]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]

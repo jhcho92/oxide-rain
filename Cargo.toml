@@ -4,16 +4,31 @@ version = "0.1.0"
 edition = "2021"
 description = "A 2D top-down shooter built with Bevy ECS"
 
+# [핵심] 여기에 기능을 정의합니다.
+[features]
+# 기본값으로 'dev' 기능을 켭니다. (cargo run 하면 자동 적용)
+default = ["dev"]
+# 'dev' 기능이 켜지면 bevy의 dynamic_linking도 같이 켭니다.
+dev = ["bevy/dynamic_linking"]
+
 [dependencies]
 bevy = { version = "0.18.0" }
 
 rand = "0.10.0-rc.6"
 
+[profile.dev]
+opt-level = 1           # 0은 너무 느리고, 3은 빌드가 오래 걸림. 1이 적당.
+debug = 0               # 내 코드 디버깅 정보는 줄임 (필요하면 1로 올리세요)
+strip = "debuginfo"     # 디버그 심볼 제거 (링킹 속도 향상)
+split-debuginfo = "unpacked"
+
+# [중요] 외부 라이브러리(Bevy 등) 설정
 [profile.dev.package."*"]
-opt-level = 3
+opt-level = 3           # 외부 라이브러리는 최적화해둠 (한 번만 빌드하면 되니까)
+debug = 0               # 외부 라이브러리 디버깅할 일 없으니 심볼 제거 (용량/속도 이득)
+strip = true            # 심볼 완전 제거
 
 [profile.release]
 opt-level = "z"     # 용량 최적화 (s는 사이즈, z는 더 작은 사이즈)
 lto = true          # 불필요한 코드 제거 (Link Time Optimization)
-codegen-units = 1   # 병렬 빌드 끄고 꼼꼼하게 압축 (빌드 시간 늘어남)
 strip = true        # 디버그 심볼 제거 (용량 확 줄어듦)

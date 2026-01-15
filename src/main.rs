@@ -29,6 +29,7 @@
 //! ├── enemy.png      - 적 스프라이트
 //! └── bullet.png     - 투사체 스프라이트
 //! ```
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
